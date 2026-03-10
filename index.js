@@ -19,7 +19,7 @@ app.post('/webhook', async (req, res) => {
         const cleanAnswers = {};
         Object.keys(payload).forEach(key => {
             // Usually, user fields start with 'q'
-            // skip the known system keys
+            // skip the known system keys.
             if (!systemKeys.includes(key) && key !== 'userId') {
                 cleanAnswers[key] = payload[key];
             }
