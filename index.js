@@ -9,44 +9,44 @@ app.post('/webhook', async (req, res) => {
     try {
         const payload = req.body;
 
-        //  Extract the User ID
-        const userId = payload.userId || "anonymous";
-
-        // Filter Jotform data to get ONLY the answers
-        // exclude Jotform's system keys to keep the JSON clean for the AI
-        const systemKeys = ['slug', 'q6_input6', 'event_id', 'formID', 'ip']; 
+        const contactId = payload.userId; 
         
+        const customFieldId = process.env.SOFITECH_ENDPOINT_ID;
+
+        if (!contactId) {
+            console.error("Missing User ID (contact_id) from Jotform payload");
+            return res.status(400).send('Missing User ID');
+        }
+
+        const systemKeys = ['slug', 'event_id', 'formID', 'ip']; 
         const cleanAnswers = {};
         Object.keys(payload).forEach(key => {
-            // Usually, user fields start with 'q'
-            // skip the known system keys
             if (!systemKeys.includes(key) && key !== 'userId') {
                 cleanAnswers[key] = payload[key];
             }
         });
 
-        // Convert all answers into one JSON string
-        const jsonAnswers = JSON.stringify(cleanAnswers);
+        const jsonString = JSON.stringify(cleanAnswers);
 
-        // Send to the ONE specific Sofitech Bot Field
-        const apiToken = process.env.SECURE_VISA_APIKEY;
-        const botFieldId = process.env.SOFITECH_ENDPOINT_ID;
+        const apiUrl = `https://app.sofitech.ai/api/contacts/${contactId}/custom_fields/${customFieldId}`;
 
         const params = new URLSearchParams();
-        params.append("value", jsonAnswers);
-        params.append("user_id", userId);
+        params.append("value", jsonString);
 
-        const response = await fetch(`https://app.sofitech.ai/api/accounts/bot_fields/${botFieldId}`, {
+        const response = await fetch(apiUrl, {
             method: 'POST',
             headers: {
-                'X-ACCESS-TOKEN': apiToken,
+                'accept': 'application/json',
+                'X-ACCESS-TOKEN': process.env.SECURE_VISA_APIKEY,
                 'Content-Type': 'application/x-www-form-urlencoded'
             },
             body: params
         });
 
-        console.log(`Forwarded JSON for User ${userId}. Sofitech Status: ${response.status}`);
-        res.status(200).send('OK');
+        const result = await response.json();
+        console.log(`[Success] User ${contactId} updated. API Response:`, result);
+        
+        res.status(200).send('Processed');
 
     } catch (error) {
         console.error('Bridge Error:', error);
@@ -55,4 +55,4 @@ app.post('/webhook', async (req, res) => {
 });
 
 const port = process.env.PORT || 8080;
-app.listen(port, () => console.log(`JSON Bridge active on port ${port}`));
+app.listen(port, () => console.log(`New Dynamic Bridge active on port ${port}`));
